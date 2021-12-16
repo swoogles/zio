@@ -447,7 +447,7 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
           testLiveMigrator
         ).foldLeft(List[SymbolMatcher](hasNormalized)) { case (serviceMatchers, serviceMigrator) =>
           serviceMatchers ++ List(serviceMigrator.normalizedOld, serviceMigrator.normalizedOldService)
-        }.map[PartialFunction[Tree, Patch]](symbolMatcher => { case t @ ImporteeNameOrRename(symbolMatcher(_: Tree)) =>
+        }.map[PartialFunction[Tree, Patch]](symbolMatcher => { case t @ ImporteeNameOrRename(symbolMatcher(tree)) =>
           Patch.removeImportee(t)
         }).foldLeft[PartialFunction[Tree, Option[Patch]]] { case (_: Tree) => None } { case (totalPatch, nextPatch) =>
           (tree: Tree) => nextPatch.lift(tree).orElse(totalPatch(tree))
