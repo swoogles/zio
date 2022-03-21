@@ -12,4 +12,6 @@ object ApplyReplacements {
   IO("blah")
   Task("blah")
   RIO("blah")
+
+  val flatMap1 = ZIO(1).flatMap((x: Int) => ZIO(x + 1))
 }

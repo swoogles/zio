@@ -1,6 +1,3 @@
-/*
-rule = Zio2Upgrade
- */
 package fix
 
 import zio.{IO, RIO, Task, UIO, URIO, ZIO}
@@ -11,5 +8,7 @@ object ApplyReplacements {
   URIO.succeed("blah")
   IO.attempt("blah")
   Task.attempt("blah")
-  RIO.succeed("blah")
+  RIO.attempt("blah")
+
+  val flatMap1 = ZIO.attempt(1).flatMap((x: Int) => ZIO.attempt(x + 1))
 }

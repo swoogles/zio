@@ -607,7 +607,7 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
   }
 
   override def fix(implicit doc: SemanticDocument): Patch = {
-    println(q"val flatMap1 = ZIO(1).flatMap((x: Int) => ZIO(x + 1))".structure)
+//    println(q"val flatMap1 = ZIO.succeed(1)".structure)
     Zio2ZIOSpec.fix +
     doc.tree.collect {
       case BuiltInServiceFixer.ImporteeRenamer(patch) => patch
@@ -697,46 +697,85 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
 
       case t @ ImporteeNameOrRename(FiberId_Old(_)) => Patch.removeImportee(t)
 
-      case full @ Term.Apply(t @ Term.Name("ZIO"), args) =>
-//        println("Structure:" + full.structure)
-//        Patch.addRight(t, ".attempt")
-//        Patch.addLeft(args, ".attempt")
-        Patch.replaceTree(full, s"ZIO.attempt(${args.mkString(",")})")
-//        Patch.replaceSymbols((t.symbol.toString(), s"ZIO.attempt"))
-
-//      case t @ Term.Apply(applicator, args) =>
-//        println("t: " + t)
-//        Patch.empty
-        /*
-        Defn.Val(
-          List(),
-          List(Pat.Var(Term.Name("flatMap1"))),
-          None,
+      // TODO Figure out conflict with >>= rule
+      case t @ Term.Apply(Term.Name("ZIO"), args) =>
+        Patch.replaceTree(t,
           Term.Apply(
-            Term.Select(
-              Term.Apply(Term.Name("ZIO"), List(Lit.Int(1))),
-              Term.Name("flatMap")
-            ),
-            List(
-              Term.Function(
-                List(Term.Param(List(), Term.Name("x"), Some(Type.Name("Int")), None)),
-                Term.Apply(
-                  Term.Name("ZIO"),
-                  List(
-                    Term.ApplyInfix(
-                      Term.Name("x"),
-                      Term.Name("+"),
-                      List(),
-                      List(Lit.Int(1))
-                    )
+            Term.Select(Term.Name("ZIO"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("UIO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("UIO"), Term.Name("succeed")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("URIO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("URIO"), Term.Name("succeed")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("RIO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("RIO"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("IO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("IO"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("Task"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("Task"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      /*
+      Defn.Val(
+        List(),
+        List(Pat.Var(Term.Name("flatMap1"))),
+        None,
+        Term.Apply(
+          Term.Select(
+            Term.Apply(Term.Name("ZIO"), List(Lit.Int(1))),
+            Term.Name("flatMap")
+          ),
+          List(
+            Term.Function(
+              List(Term.Param(List(), Term.Name("x"), Some(Type.Name("Int")), None)),
+              Term.Apply(
+                Term.Name("ZIO"),
+                List(
+                  Term.ApplyInfix(
+                    Term.Name("x"),
+                    Term.Name("+"),
+                    List(),
+                    List(Lit.Int(1))
                   )
                 )
               )
             )
           )
         )
+      )
 
-         */
+       */
 
     }.asPatch + replaceSymbols
   }
