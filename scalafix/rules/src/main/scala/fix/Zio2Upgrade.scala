@@ -697,87 +697,7 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
 
       case t @ ImporteeNameOrRename(FiberId_Old(_)) => Patch.removeImportee(t)
 
-      // TODO Figure out conflict with >>= rule
-      case t @ Term.Apply(Term.Name("ZIO"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("ZIO"), Term.Name("attempt")),
-            args
-          ).toString()
-        )
-
-      case t @ Term.Apply(Term.Name("UIO"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("UIO"), Term.Name("succeed")),
-            args
-          ).toString()
-        )
-
-      case t @ Term.Apply(Term.Name("URIO"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("URIO"), Term.Name("succeed")),
-            args
-          ).toString()
-        )
-
-      case t @ Term.Apply(Term.Name("RIO"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("RIO"), Term.Name("attempt")),
-            args
-          ).toString()
-        )
-
-      case t @ Term.Apply(Term.Name("IO"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("IO"), Term.Name("attempt")),
-            args
-          ).toString()
-        )
-
-      case t @ Term.Apply(Term.Name("Task"), args) =>
-        Patch.replaceTree(t,
-          Term.Apply(
-            Term.Select(Term.Name("Task"), Term.Name("attempt")),
-            args
-          ).toString()
-        )
-
-      /*
-      Defn.Val(
-        List(),
-        List(Pat.Var(Term.Name("flatMap1"))),
-        None,
-        Term.Apply(
-          Term.Select(
-            Term.Apply(Term.Name("ZIO"), List(Lit.Int(1))),
-            Term.Name("flatMap")
-          ),
-          List(
-            Term.Function(
-              List(Term.Param(List(), Term.Name("x"), Some(Type.Name("Int")), None)),
-              Term.Apply(
-                Term.Name("ZIO"),
-                List(
-                  Term.ApplyInfix(
-                    Term.Name("x"),
-                    Term.Name("+"),
-                    List(),
-                    List(Lit.Int(1))
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
-
-       */
-
-    }.asPatch + replaceSymbols
+    }.asPatch + replaceSymbols + replaceApplyMethods.asPatch
   }
 
   /*
@@ -838,6 +758,82 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
     )
 
   }
+
+
+  def replaceApplyMethods(implicit doc: SemanticDocument) =
+  // TODO Figure out conflicts with other rules
+    doc.tree.collect {
+      case t @ Term.Apply(inner @ Term.Name("ZIO"), args) =>
+        Patch.replaceToken(inner.tokens.head,
+          Term.Select(Term.Name("ZIO"), Term.Name("attempt")).toString(),
+        )
+      case t @ Term.Apply(inner @ Term.Name("UIO"), args) =>
+        Patch.removeTokens(inner.tokens) +
+        Patch.addLeft(inner,
+          Term.Select(Term.Name("UIO"), Term.Name("succeed")).toString(),
+        )
+
+      case t @ Term.Apply(Term.Name("URIO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("URIO"), Term.Name("succeed")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("RIO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("RIO"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(Term.Name("IO"), args) =>
+        Patch.replaceTree(t,
+          Term.Apply(
+            Term.Select(Term.Name("IO"), Term.Name("attempt")),
+            args
+          ).toString()
+        )
+
+      case t @ Term.Apply(inner @ Term.Name("Task"), args) =>
+        Patch.replaceToken(inner.tokens.head,
+          Term.Select(Term.Name("Task"), Term.Name("attempt")).toString(),
+        )
+
+      /*
+      Defn.Val(
+        List(),
+        List(Pat.Var(Term.Name("flatMap1"))),
+        None,
+        Term.Apply(
+          Term.Select(
+            Term.Apply(Term.Name("ZIO"), List(Lit.Int(1))),
+            Term.Name("flatMap")
+          ),
+          List(
+            Term.Function(
+              List(Term.Param(List(), Term.Name("x"), Some(Type.Name("Int")), None)),
+              Term.Apply(
+                Term.Name("ZIO"),
+                List(
+                  Term.ApplyInfix(
+                    Term.Name("x"),
+                    Term.Name("+"),
+                    List(),
+                    List(Lit.Int(1))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+
+       */
+
+    }
 }
 
 private object ImporteeNameOrRename {

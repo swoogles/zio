@@ -341,7 +341,7 @@ object ZStreamSpec extends ZIOSpecDefault {
             for {
               done <- Ref.make(false)
               iteratorStream = ZStream
-                                 .acquireReleaseWith(UIO(0 to 2))(_ => done.set(true))
+                                 .acquireReleaseWith(UIO.succeed(0 to 2))(_ => done.set(true))
                                  .flatMap(ZStream.fromIterable(_))
               result   <- iteratorStream.runCollect
               released <- done.get
@@ -351,7 +351,7 @@ object ZStreamSpec extends ZIOSpecDefault {
             for {
               done <- Ref.make(false)
               iteratorStream = ZStream
-                                 .acquireReleaseWith(UIO(0 to 3))(_ => done.set(true))
+                                 .acquireReleaseWith(UIO.succeed(0 to 3))(_ => done.set(true))
                                  .flatMap(ZStream.fromIterable(_))
                                  .take(2)
               result   <- iteratorStream.runCollect
@@ -408,7 +408,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                     expected = Chunk.fromIterable(Range(0, 5))
                   } yield assert(out1)(equalTo(expected)) && assert(out2)(equalTo(expected))
                 case _ =>
-                  UIO(assert(())(Assertion.nothing))
+                  UIO.succeed(assert(())(Assertion.nothing))
               }
           },
           test("Errors") {
@@ -420,7 +420,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                   expected = Left("Boom")
                 } yield assert(out1)(equalTo(expected)) && assert(out2)(equalTo(expected))
               case _ =>
-                UIO(assert(())(Assertion.nothing))
+                UIO.succeed(assert(())(Assertion.nothing))
             }
           },
           test("BackPressure") {
@@ -446,7 +446,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                     equalTo(Range(0, 5).toList.reverse)
                   )
                 case _ =>
-                  UIO(assert(())(Assertion.nothing))
+                  UIO.succeed(assert(())(Assertion.nothing))
               }
           },
           test("Unsubscribe") {
@@ -461,7 +461,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                     out2 <- s2.runCollect
                   } yield assert(out2)(equalTo(Chunk.fromIterable(Range(0, 5))))
                 case _ =>
-                  UIO(assert(())(Assertion.nothing))
+                  UIO.succeed(assert(())(Assertion.nothing))
               }
           }
         ),
@@ -750,7 +750,7 @@ object ZStreamSpec extends ZIOSpecDefault {
           test("collectM") {
             assertM(
               ZStream(Left(1), Right(2), Left(3)).collectZIO { case Right(n) =>
-                ZIO(n * 2)
+                ZIO.attempt(n * 2)
               }.runCollect
             )(equalTo(Chunk(4)))
           },
@@ -797,7 +797,7 @@ object ZStreamSpec extends ZIOSpecDefault {
           test("collectWhileM") {
             assertM(
               ZStream(Some(1), Some(2), Some(3), None, Some(4)).collectWhileZIO { case Some(v) =>
-                ZIO(v * 2)
+                ZIO.attempt(v * 2)
               }.runCollect
             )(equalTo(Chunk(2, 4, 6)))
           },
@@ -2110,7 +2110,7 @@ object ZStreamSpec extends ZIOSpecDefault {
               ZStream
                 .fromIterable((0 to 100))
                 .interruptWhen(ZIO.never)
-                .mapZIOPar(8)(_ => ZIO(1).repeatN(2000))
+                .mapZIOPar(8)(_ => ZIO.attempt(1).repeatN(2000))
                 .runDrain
                 .exit
                 .map(_.isInterrupted)
@@ -2596,7 +2596,7 @@ object ZStreamSpec extends ZIOSpecDefault {
               streamFib <- stream
                              .retry(Schedule.exponential(1.second))
                              .take(2)
-                             .tap(e => UIO(println(s"Got element ${e}")))
+                             .tap(e => UIO.succeed(println(s"Got element $e")))
                              .runDrain
                              .fork
               _       <- TestClock.adjust(1.second)
@@ -3071,7 +3071,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                 .fail(new Exception("boom"))
                 .toInputStream
                 .use(is =>
-                  Task {
+                  Task.attempt {
                     is.read
                   }
                 )
@@ -3095,7 +3095,7 @@ object ZStreamSpec extends ZIOSpecDefault {
             assertM(
               str.toInputStream
                 .use(is =>
-                  Task {
+                  Task.attempt {
                     val buf = new Array[Byte](50)
                     is.read(buf)
                     "ok"
@@ -3110,7 +3110,7 @@ object ZStreamSpec extends ZIOSpecDefault {
               ZStream.fromIterable(bytes) ++ ZStream.fail(new Exception("boom"))
             assertM(
               str.toInputStream.use(is =>
-                Task {
+                Task.attempt {
                   val buf = new Array[Byte](5)
                   is.read(buf)
                   buf.toList
@@ -3188,7 +3188,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                 .fromChunk(Chunk.fromArray("Lorem ipsum".toArray))
                 .toReader
                 .use(reader =>
-                  Task {
+                  Task.attempt {
                     reader.mark(0)
                   }
                 )
@@ -3201,7 +3201,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                 .fromChunk(Chunk.fromArray("Lorem ipsum".toArray))
                 .toReader
                 .use(reader =>
-                  Task {
+                  Task.attempt {
                     reader.reset()
                   }
                 )
@@ -3230,7 +3230,7 @@ object ZStreamSpec extends ZIOSpecDefault {
                 .fail(new Exception("boom"))
                 .toReader
                 .use(reader =>
-                  Task {
+                  Task.attempt {
                     reader.read
                   }
                 )
@@ -3254,7 +3254,7 @@ object ZStreamSpec extends ZIOSpecDefault {
             assertM(
               str.toReader
                 .use(reader =>
-                  Task {
+                  Task.attempt {
                     val buf = new Array[Char](50)
                     reader.read(buf)
                     "ok"
@@ -3269,7 +3269,7 @@ object ZStreamSpec extends ZIOSpecDefault {
               ZStream.fromIterable(chars) ++ ZStream.fail(new Exception("boom"))
             assertM(
               str.toReader.use(reader =>
-                Task {
+                Task.attempt {
                   val buf = new Array[Char](5)
                   reader.read(buf)
                   buf.toList
@@ -3974,12 +3974,12 @@ object ZStreamSpec extends ZIOSpecDefault {
             } yield assert(result)(equalTo(Chunk.fromIterable(0 to length)))
           }),
           test("should perform repetitions in addition to the first execution (one repetition)") {
-            assertM(ZStream.repeatZIOWithSchedule(UIO(1), Schedule.once).runCollect)(
+            assertM(ZStream.repeatZIOWithSchedule(UIO.succeed(1), Schedule.once).runCollect)(
               equalTo(Chunk(1, 1))
             )
           },
           test("should perform repetitions in addition to the first execution (zero repetitions)") {
-            assertM(ZStream.repeatZIOWithSchedule(UIO(1), Schedule.stop).runCollect)(
+            assertM(ZStream.repeatZIOWithSchedule(UIO.succeed(1), Schedule.stop).runCollect)(
               equalTo(Chunk(1))
             )
           },

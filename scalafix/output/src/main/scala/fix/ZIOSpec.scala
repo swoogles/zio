@@ -589,7 +589,7 @@ object ZIOSpec extends ZIOSpecDefault {
       test("filters a collection in parallel using an effectual predicate") {
         val as = Iterable(2, 4, 6, 3, 5, 6, 10, 11, 15, 17, 20, 22, 23, 25, 28)
         for {
-          results <- ZIO.filterPar(as)(a => UIO(a % 2 == 0))
+          results <- ZIO.filterPar(as)(a => UIO.succeed(a % 2 == 0))
         } yield assert(results)(equalTo(List(2, 4, 6, 6, 10, 20, 22, 28)))
       }
     ),
@@ -599,7 +599,7 @@ object ZIOSpec extends ZIOSpecDefault {
       ) {
         val as = Iterable(2, 4, 6, 3, 5, 6, 10, 11, 15, 17, 20, 22, 23, 25, 28)
         for {
-          results <- ZIO.filterNotPar(as)(a => UIO(a % 2 == 0))
+          results <- ZIO.filterNotPar(as)(a => UIO.succeed(a % 2 == 0))
         } yield assert(results)(equalTo(List(3, 5, 11, 15, 17, 23, 25)))
       }
     ),
@@ -921,7 +921,7 @@ object ZIOSpec extends ZIOSpecDefault {
     suite("foreachParN")(
       test("returns the list of results in the appropriate order") {
         val list = List(1, 2, 3)
-        val res  = IO.foreachPar(list)(x => UIO(x.toString)).withParallelism(2)
+        val res  = IO.foreachPar(list)(x => UIO.succeed(x.toString)).withParallelism(2)
         assertM(res)(equalTo(List("1", "2", "3")))
       },
       test("works on large lists") {
@@ -1325,11 +1325,11 @@ object ZIOSpec extends ZIOSpecDefault {
     ),
     suite("none")(
       test("on Some fails with None") {
-        val task: IO[Option[Throwable], Unit] = Task(Some(1)).none
+        val task: IO[Option[Throwable], Unit] = Task.attempt(Some(1)).none
         assertM(task.exit)(fails(isNone))
       },
       test("on None succeeds with ()") {
-        val task: IO[Option[Throwable], Unit] = Task(None).none
+        val task: IO[Option[Throwable], Unit] = Task.attempt(None).none
         assertM(task)(isUnit)
       },
       test("fails with Some(ex) when effect fails with ex") {
@@ -1479,8 +1479,8 @@ object ZIOSpec extends ZIOSpecDefault {
         val z1                = Task.fail(new Throwable("1"))
         val z2: Task[Nothing] = Task.die(new Throwable("2"))
         val orElse: Task[Boolean] = z1.orElse(z2).catchAllCause {
-          case Traced(Die(e: Throwable), _) => Task(e.getMessage == "2")
-          case _                            => Task(false)
+          case Traced(Die(e: Throwable), _) => Task.attempt(e.getMessage == "2")
+          case _                            => Task.attempt(false)
         }
         assertM(orElse)(equalTo(true))
       },
@@ -1488,8 +1488,8 @@ object ZIOSpec extends ZIOSpecDefault {
         val z1                = Task.fail(new Throwable("1"))
         val z2: Task[Nothing] = Task.fail(new Throwable("2"))
         val orElse: Task[Boolean] = z1.orElse(z2).catchAllCause {
-          case Traced(Fail(e: Throwable), _) => Task(e.getMessage == "2")
-          case _                             => Task(false)
+          case Traced(Fail(e: Throwable), _) => Task.attempt(e.getMessage == "2")
+          case _                             => Task.attempt(false)
         }
         assertM(orElse)(equalTo(true))
       },
@@ -1810,7 +1810,7 @@ object ZIOSpec extends ZIOSpecDefault {
     ),
     suite("some")(
       test("extracts the value from Some") {
-        val task: IO[Option[Throwable], Int] = Task(Some(1)).some
+        val task: IO[Option[Throwable], Int] = Task.attempt(Some(1)).some
         assertM(task)(equalTo(1))
       },
       test("make a task from a defined option") {
@@ -1820,7 +1820,7 @@ object ZIOSpec extends ZIOSpecDefault {
         assertM(Task.getOrFail(None).exit)(fails(isSubtype[NoSuchElementException](anything)))
       },
       test("fails on None") {
-        val task: IO[Option[Throwable], Int] = Task(None).some
+        val task: IO[Option[Throwable], Int] = Task.attempt(None).some
         assertM(task.exit)(fails(isNone))
       },
       test("fails when given an exception") {
@@ -1847,7 +1847,7 @@ object ZIOSpec extends ZIOSpecDefault {
       ),
       suite("with throwable as base error type")(
         test("return something") {
-          assertM(Task(Option(3)).someOrFailException)(equalTo(3))
+          assertM(Task.attempt(Option(3)).someOrFailException)(equalTo(3))
         }
       ),
       suite("with exception as base error type")(
@@ -3075,7 +3075,7 @@ object ZIOSpec extends ZIOSpecDefault {
     ),
     suite("serviceWith")(
       test("effectfully accesses a service in the environment") {
-        val zio = ZIO.serviceWithZIO[Int](int => UIO(int + 3))
+        val zio = ZIO.serviceWithZIO[Int](int => UIO.succeed(int + 3))
         assertM(zio.provideLayer(ZLayer.succeed(0)))(equalTo(3))
       }
     ),
@@ -3115,11 +3115,11 @@ object ZIOSpec extends ZIOSpecDefault {
     ),
     suite("someOrFail")(
       test("extracts the optional value") {
-        val task: Task[Int] = UIO(Some(42)).someOrFail(exampleError)
+        val task: Task[Int] = UIO.succeed(Some(42)).someOrFail(exampleError)
         assertM(task)(equalTo(42))
       },
       test("fails when given a None") {
-        val task: Task[Int] = UIO(Option.empty[Int]).someOrFail(exampleError)
+        val task: Task[Int] = UIO.succeed(Option.empty[Int]).someOrFail(exampleError)
         assertM(task.exit)(fails(equalTo(exampleError)))
       }
     ),
@@ -3173,7 +3173,7 @@ object ZIOSpec extends ZIOSpecDefault {
       test("effectually peeks at the success of this effect") {
         for {
           ref <- Ref.make(0)
-          _ <- Task(42).tapEither {
+          _ <- Task.attempt(42).tapEither {
                  case Left(_)      => ref.set(-1)
                  case Right(value) => ref.set(value)
                }.exit
@@ -3456,10 +3456,10 @@ object ZIOSpec extends ZIOSpecDefault {
     ),
     suite("validateWith")(
       test("succeeds") {
-        assertM(ZIO(1).validateWith(ZIO(2))(_ + _))(equalTo(3))
+        assertM(ZIO.attempt(1).validateWith(ZIO.attempt(2))(_ + _))(equalTo(3))
       },
       test("fails") {
-        assertM(ZIO(1).validate(ZIO.fail(2)).sandbox.either)(isLeft(equalTo(Cause.Fail(2))))
+        assertM(ZIO.attempt(1).validate(ZIO.fail(2)).sandbox.either)(isLeft(equalTo(Cause.Fail(2))))
       },
       test("combines both cause") {
         assertM(ZIO.fail(1).validate(ZIO.fail(2)).sandbox.either)(
@@ -3550,18 +3550,18 @@ object ZIOSpec extends ZIOSpecDefault {
     suite("withFilter")(
       test("tuple value is extracted correctly from task") {
         for {
-          (i, j, k) <- Task((1, 2, 3))
+          (i, j, k) <- Task.attempt((1, 2, 3))
         } yield assert((i, j, k))(equalTo((1, 2, 3)))
       },
       test("condition in for-comprehension syntax works correctly for task") {
         for {
-          n <- Task(3) if n > 0
+          n <- Task.attempt(3) if n > 0
         } yield assert(n)(equalTo(3))
       },
       test("unsatisfied condition should fail with NoSuchElementException") {
         val task =
           for {
-            n <- Task(3) if n > 10
+            n <- Task.attempt(3) if n > 10
           } yield n
         assertM(task.exit)(fails(isSubtype[NoSuchElementException](anything)))
       },
