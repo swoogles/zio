@@ -423,7 +423,9 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
     "zio.test.TimeVariants.anyZoneId"         -> "zio.test.Gen.zoneId",
     // App
     "zio.App"           -> "zio.ZIOAppDefault",
-    "zio.Executor.asEC" -> "zio.Executor.asExecutionContext"
+    "zio.Executor.asEC" -> "zio.Executor.asExecutionContext",
+    // Apply methods
+//    "zio.ZIO.apply" -> "zio.ZIO.attempt", // TODO doesn't work
   )
 
   val foreachParN             = ParNRenamer("foreachPar", 3)
@@ -605,6 +607,7 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
   }
 
   override def fix(implicit doc: SemanticDocument): Patch = {
+    println(q"val flatMap1 = ZIO(1).flatMap((x: Int) => ZIO(x + 1))".structure)
     Zio2ZIOSpec.fix +
     doc.tree.collect {
       case BuiltInServiceFixer.ImporteeRenamer(patch) => patch
@@ -620,6 +623,9 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
 
       // Replace >>= with flatMap. For some reason, this doesn't work with the
       // technique used above.
+//      case t @ q"ZIO($rhs)" =>
+//        Patch.replaceTree(t, s"ZIO.attempt($rhs)")
+
       case t @ q"$lhs >>= $rhs" if lhs.symbol.owner.value.startsWith("zio") =>
         Patch.replaceTree(t, s"$lhs flatMap $rhs")
       case t @ q"$lhs.>>=($rhs)" if lhs.symbol.owner.value.startsWith("zio") =>
@@ -690,6 +696,47 @@ class Zio2Upgrade extends SemanticRule("Zio2Upgrade") {
         Patch.replaceTree(t, "import zio.internal.tracing.Tracing")
 
       case t @ ImporteeNameOrRename(FiberId_Old(_)) => Patch.removeImportee(t)
+
+      case full @ Term.Apply(t @ Term.Name("ZIO"), args) =>
+//        println("Structure:" + full.structure)
+//        Patch.addRight(t, ".attempt")
+//        Patch.addLeft(args, ".attempt")
+        Patch.replaceTree(full, s"ZIO.attempt(${args.mkString(",")})")
+//        Patch.replaceSymbols((t.symbol.toString(), s"ZIO.attempt"))
+
+//      case t @ Term.Apply(applicator, args) =>
+//        println("t: " + t)
+//        Patch.empty
+        /*
+        Defn.Val(
+          List(),
+          List(Pat.Var(Term.Name("flatMap1"))),
+          None,
+          Term.Apply(
+            Term.Select(
+              Term.Apply(Term.Name("ZIO"), List(Lit.Int(1))),
+              Term.Name("flatMap")
+            ),
+            List(
+              Term.Function(
+                List(Term.Param(List(), Term.Name("x"), Some(Type.Name("Int")), None)),
+                Term.Apply(
+                  Term.Name("ZIO"),
+                  List(
+                    Term.ApplyInfix(
+                      Term.Name("x"),
+                      Term.Name("+"),
+                      List(),
+                      List(Lit.Int(1))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+
+         */
 
     }.asPatch + replaceSymbols
   }
