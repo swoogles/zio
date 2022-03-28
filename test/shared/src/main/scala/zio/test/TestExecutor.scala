@@ -103,7 +103,7 @@ object TestExecutor {
               .provideLayer(environment)
           ZIO.scoped {
             loop(List.empty, scopedSpec, defExec, List.empty, topParent)
-          }
+          }.disconnect.race(Clock.ClockLive.sleep(10.seconds))
         }
 
         summary <- sink.getSummary

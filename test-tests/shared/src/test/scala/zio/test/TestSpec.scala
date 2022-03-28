@@ -67,6 +67,16 @@ object TestSpec extends ZIOBaseSpec {
           test("another test in an effectual suite")(assertCompletes)
         )
       }
+    },
+    test("some test") {
+      val spec = test("test") {
+        for {
+          _ <- ZIO.addFinalizer(ZIO.uninterruptible(ZIO.never))
+        } yield assertCompletes
+      } @@ timeout(1.second)
+      for {
+        _ <- execute(spec)
+      } yield assertCompletes
     }
   )
 }

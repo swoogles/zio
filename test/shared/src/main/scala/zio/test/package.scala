@@ -238,6 +238,7 @@ package object test extends CompileVariants {
             case Some(failures) => ZIO.fail(TestFailure.Assertion(failures))
           }
         )
+        .disconnect
   }
 
   /**

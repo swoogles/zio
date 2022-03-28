@@ -954,8 +954,8 @@ object TestAspect extends TimeoutVariants {
           TestTimeoutException(s"Timeout of ${duration.render} exceeded.")
         Live
           .withLive(test)(_.either.disconnect.timeout(duration).flatMap {
-            case None         => ZIO.fail(TestFailure.Runtime(Cause.die(timeoutFailure)))
-            case Some(result) => ZIO.fromEither(result)
+            case None         => ZIO.debug("A") *> ZIO.fail(TestFailure.Runtime(Cause.die(timeoutFailure)))
+            case Some(result) => ZIO.debug("B") *> ZIO.fromEither(result)
           })
       }
     }
