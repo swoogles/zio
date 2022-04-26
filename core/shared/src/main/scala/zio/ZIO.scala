@@ -3780,6 +3780,7 @@ object ZIO extends ZIOCompanionPlatformSpecific {
    * Logs the specified message at the warning log level.
    */
   def logWarning(message: => String)(implicit trace: Trace): UIO[Unit] =
+    ZIO.debug("Should log warning: " + message) *>
     new Logged(() => message, Cause.empty, someWarning, trace)
 
   /**

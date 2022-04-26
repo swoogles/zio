@@ -2,17 +2,9 @@ package zio.test.sbt
 
 import sbt.testing.{Event, EventHandler, Logger, Status, Task, TaskDef}
 import zio.{CancelableFuture, Console, Runtime, Scope, UIO, ZEnvironment, ZIO, ZIOAppArgs, ZLayer, Trace}
+import zio.{CancelableFuture, Console, Layer, Runtime, Scope, UIO, ZEnvironment, ZIO, ZIOAppArgs, ZLayer, ZTraceElement}
 import zio.test.render.ConsoleRenderer
-import zio.test.{
-  ExecutionEvent,
-  FilteredSpec,
-  Summary,
-  TestArgs,
-  TestEnvironment,
-  TestLogger,
-  ZIOSpecAbstract,
-  ZTestEventHandler
-}
+import zio.test.{ExecutionEvent, FilteredSpec, Summary, TestArgs, TestEnvironment, TestLogger, ZIOSpecAbstract, ZTestEventHandler}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -36,9 +28,18 @@ abstract class BaseTestTask[T](
     )
   } +!+ Scope.default
 
+  protected def sharedFilledTestlayerZ(
+                                       loggers: Array[Logger],
+                                     )(implicit trace: ZTraceElement): ZLayer[Any, Nothing, TestEnvironment with TestLogger with ZIOAppArgs with Scope] = {
+    ZIOAppArgs.empty +!+ (
+      (zio.ZEnv.live ++ Scope.default) >>>
+        TestEnvironment.live >+> sbtTestLayer(loggers)
+      )
+  } +!+ Scope.default
+
   private[zio] def run(
-    eventHandlerZ: ZTestEventHandler
-  )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+    eventHandlerZ: ZTestEventHandler, loggers: Array[Logger]
+  )(implicit trace: ZTrace): ZIO[Any, Nothing, Unit] =
     ZIO.consoleWith { console =>
       (for {
         summary <- spec
@@ -46,9 +47,18 @@ abstract class BaseTestTask[T](
         _ <- sendSummary.provideEnvironment(ZEnvironment(summary))
       } yield ())
         .provideLayer(
+//          sharedFilledTestlayerZ(loggers)
           sharedFilledTestlayer(console)
         )
     }
+
+  protected def sbtTestLayer(
+                              loggers: Array[Logger]
+                            )(implicit trace: ZTraceElement): Layer[Nothing, TestLogger] =
+    ZLayer.succeed[TestLogger](new TestLogger {
+      def logLine(line: String)(implicit trace: ZTraceElement): UIO[Unit] =
+        ZIO.attempt(loggers.foreach(_.info(colored(line)))).ignore
+    }).debug("Test layer")
 
   override def execute(eventHandler: EventHandler, loggers: Array[Logger]): Array[Task] = {
     implicit val trace = Trace.empty
@@ -58,7 +68,7 @@ abstract class BaseTestTask[T](
     try {
       val res: CancelableFuture[Unit] =
         runtime.unsafeRunToFuture {
-          run(zTestHandler)
+          run(zTestHandler, loggers)
         }
 
       resOutter = res

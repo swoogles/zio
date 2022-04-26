@@ -16,6 +16,7 @@
 
 package zio.test
 
+import zio.Console.printLine
 import zio._
 import zio.internal.stacktracer.Tracer
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -398,6 +399,7 @@ object TestClock extends Serializable {
     private def warningStart(implicit trace: Trace): UIO[Unit] =
       warningState.updateSomeZIO { case WarningData.Start =>
         for {
+//          fiber <- live.provide(TestLogger.logLine(warning).delay(5.seconds)).interruptible.fork
           fiber <- live.provide(ZIO.logWarning(warning).delay(5.seconds)).interruptible.fork
         } yield WarningData.pending(fiber)
       }
