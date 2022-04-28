@@ -2,7 +2,7 @@ package zio.test.sbt
 
 import sbt.testing.{Event, EventHandler, Logger, Status, Task, TaskDef}
 import zio.{CancelableFuture, Console, Runtime, Scope, UIO, ZEnvironment, ZIO, ZIOAppArgs, ZLayer, Trace}
-import zio.{CancelableFuture, Console, Layer, Runtime, Scope, UIO, ZEnvironment, ZIO, ZIOAppArgs, ZLayer, ZTraceElement}
+import zio.{CancelableFuture, Console, Layer, Runtime, Scope, UIO, ZEnvironment, ZIO, ZIOAppArgs, ZLayer}
 import zio.test.render.ConsoleRenderer
 import zio.test.{ExecutionEvent, FilteredSpec, Summary, TestArgs, TestEnvironment, TestLogger, ZIOSpecAbstract, ZTestEventHandler}
 
@@ -30,7 +30,7 @@ abstract class BaseTestTask[T](
 
   protected def sharedFilledTestlayerZ(
                                        loggers: Array[Logger],
-                                     )(implicit trace: ZTraceElement): ZLayer[Any, Nothing, TestEnvironment with TestLogger with ZIOAppArgs with Scope] = {
+                                     )(implicit trace: Trace): ZLayer[Any, Nothing, TestEnvironment with TestLogger with ZIOAppArgs with Scope] = {
     ZIOAppArgs.empty +!+ (
       (zio.ZEnv.live ++ Scope.default) >>>
         TestEnvironment.live >+> sbtTestLayer(loggers)
@@ -39,7 +39,7 @@ abstract class BaseTestTask[T](
 
   private[zio] def run(
     eventHandlerZ: ZTestEventHandler, loggers: Array[Logger]
-  )(implicit trace: ZTrace): ZIO[Any, Nothing, Unit] =
+  )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
     ZIO.consoleWith { console =>
       (for {
         summary <- spec
@@ -54,9 +54,9 @@ abstract class BaseTestTask[T](
 
   protected def sbtTestLayer(
                               loggers: Array[Logger]
-                            )(implicit trace: ZTraceElement): Layer[Nothing, TestLogger] =
+                            )(implicit trace: Trace): Layer[Nothing, TestLogger] =
     ZLayer.succeed[TestLogger](new TestLogger {
-      def logLine(line: String)(implicit trace: ZTraceElement): UIO[Unit] =
+      def logLine(line: String)(implicit trace: Trace): UIO[Unit] =
         ZIO.attempt(loggers.foreach(_.info(colored(line)))).ignore
     }).debug("Test layer")
 
