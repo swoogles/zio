@@ -99,7 +99,7 @@ object DefaultTestReporter {
         }
       case SectionEnd(_, _, _) =>
         Nil
-      case TopLevelFlush(_) =>
+      case TopLevelFlush() =>
         Nil
     }
 

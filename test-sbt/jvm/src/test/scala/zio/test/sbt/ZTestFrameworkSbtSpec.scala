@@ -51,7 +51,7 @@ object ZTestFrameworkSbtSpec {
           case RuntimeFailure(_, _, _, _)    => false
           case SectionStart(_, _, _)         => false
           case SectionEnd(_, _, _)           => false
-          case TopLevelFlush(_)              => false
+          case TopLevelFlush()              => false
         }
       ),
       s"reported events should have positive durations: $reported"

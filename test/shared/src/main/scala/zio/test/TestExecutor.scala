@@ -144,9 +144,7 @@ object TestExecutor {
               loop(List.empty, scopedSpec, defExec, List.empty, topParent)
             } *>
               sink.process(
-                ExecutionEvent.TopLevelFlush(
-                  topParent
-                )
+                ExecutionEvent.TopLevelFlush()
               )
           }
           summary <- summary.get

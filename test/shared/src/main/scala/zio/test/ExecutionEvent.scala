@@ -29,7 +29,9 @@ object ExecutionEvent {
     val labels: List[String] = labelsReversed.reverse
   }
 
-  final case class TopLevelFlush(id: SuiteId) extends ExecutionEvent {
+  // TODO Make an object?
+  final case class TopLevelFlush() extends ExecutionEvent {
+    val id: SuiteId = SuiteId.global
     val labels: List[String]     = List.empty
     val ancestors: List[SuiteId] = List.empty
   }
