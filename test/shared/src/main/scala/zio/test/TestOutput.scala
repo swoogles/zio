@@ -38,19 +38,28 @@ object TestOutput {
     ZIO.serviceWithZIO[TestOutput](_.print(executionEvent))
 
   case class TestOutputLive(
-    output: Ref[Map[SuiteId, Chunk[ExecutionEvent]]],
+    output: Ref.Synchronized[Map[SuiteId, Chunk[ExecutionEvent]]],
     reporters: TestReporters,
     executionEventPrinter: ExecutionEventPrinter
   ) extends TestOutput {
 
-    private def getAndRemoveSectionOutput(id: SuiteId) =
+    private def getAndRemoveSectionOutput(id: SuiteId, action: Chunk[ExecutionEvent] => ZIO[Any, Nothing, Chunk[ExecutionEvent]], parentAction: Chunk[ExecutionEvent] => Option[(SuiteId, Chunk[ExecutionEvent])] = _ => None) =
       output
-        .getAndUpdate(initial => updatedWith(initial, id)(_ => None))
-        .map(_.getOrElse(id, Chunk.empty))
+        .getAndUpdateZIO { initial =>
+          val contents = initial.getOrElse(id, Chunk.empty)
+          action(contents).map { newContents =>
+            val newRes = updatedWith(initial, id)(_ => Some(newContents))
+            parentAction(contents) match {
+              case Some(value) => updatedWith(newRes, value._1)(_.map(_ ++ value._2))
+              case None => newRes
+            }
+          }
+        }
+        .map(_.getOrElse(id, Chunk.empty)) // TODO remove when done
 
     def print(
       executionEvent: ExecutionEvent
-    ): ZIO[Any, Nothing, Unit] =
+    ): ZIO[Any, Nothing, Unit] = {
       executionEvent match {
         case end: ExecutionEvent.SectionEnd =>
           printOrFlush(end)
@@ -60,6 +69,7 @@ object TestOutput {
         case other =>
           printOrQueue(other)
       }
+    }
 
     private def printOrFlush(
       end: ExecutionEvent.SectionEnd
@@ -67,19 +77,28 @@ object TestOutput {
       for {
         suiteIsPrinting <-
           reporters.attemptToGetPrintingControl(end.id, end.ancestors)
-        sectionOutput <- getAndRemoveSectionOutput(end.id).map(_ :+ end)
-        _ <-
+        _ <- appendToSectionContents(end.id, Chunk(end))
+        _ <- getAndRemoveSectionOutput(end.id,
+          sectionOutput =>
+
           if (suiteIsPrinting)
-            printToConsole(sectionOutput)
+            (printToConsole(sectionOutput) *> reporters.relinquishPrintingControl(end.id) *> ZIO.succeed(Chunk.empty[ExecutionEvent]))
           else {
-            end.ancestors.headOption match {
-              case Some(parentId) =>
-                appendToSectionContents(parentId, sectionOutput)
-              case None =>
-                // TODO If we can't find cause of failure in CI, unsafely print to console instead of failing
-                ZIO.dieMessage("Suite tried to send its output to a nonexistent parent. ExecutionEvent: " + end)
-            }
-          }
+                ZIO.succeed(Chunk.empty[ExecutionEvent])
+          },
+          sectionOutput =>
+            if(!suiteIsPrinting)
+              end.ancestors.headOption match {
+                case Some(parentId) =>
+                  Some((parentId, sectionOutput))
+                case None =>
+                  // TODO If we can't find cause of failure in CI, unsafely print to console instead of failing
+                  ???
+//                  ZIO.dieMessage("Suite tried to send its output to a nonexistent parent. ExecutionEvent: " + end)
+              }
+//              Chunk.empty
+            else None
+          )
 
         _ <- reporters.relinquishPrintingControl(end.id)
       } yield ()
@@ -88,20 +107,16 @@ object TestOutput {
       end: ExecutionEvent.TopLevelFlush
     ): ZIO[Any, Nothing, Unit] =
       for {
-        sectionOutput <- getAndRemoveSectionOutput(end.id)
-        _             <- appendToSectionContents(SuiteId.global, sectionOutput)
         suiteIsPrinting <-
           reporters.attemptToGetPrintingControl(SuiteId.global, List.empty)
-        _ <-
-          if (suiteIsPrinting) {
-            for {
-              globalOutput <- getAndRemoveSectionOutput(SuiteId.global)
-              _            <- printToConsole(globalOutput)
-            } yield ()
+        _ <- getAndRemoveSectionOutput(SuiteId.global,
+                globalOutput =>
+                if(suiteIsPrinting)
+                  printToConsole(globalOutput).map(_ => Chunk.empty[ExecutionEvent])
+                else
+                  ZIO.succeed(globalOutput)
 
-          } else {
-            ZIO.unit
-          }
+              )
       } yield ()
 
     private def printOrQueue(
@@ -113,15 +128,17 @@ object TestOutput {
                              reporterEvent.id,
                              reporterEvent.ancestors
                            )
-        _ <- ZIO.when(suiteIsPrinting)(
-               for {
-                 currentOutput <- getAndRemoveSectionOutput(reporterEvent.id)
-                 _             <- printToConsole(currentOutput)
-               } yield ()
-             )
+        _ <- getAndRemoveSectionOutput(reporterEvent.id,
+                   currentOutput =>
+                     if(suiteIsPrinting) {
+                       printToConsole(currentOutput).map(_ => Chunk.empty)
+                     } else {
+                       ZIO.succeed(currentOutput)
+                     }
+                 )
       } yield ()
 
-    private def printToConsole(events: Chunk[ExecutionEvent]) =
+    private def printToConsole(events: Chunk[ExecutionEvent]): ZIO[Any, Nothing, Unit] =
       ZIO.foreachDiscard(events) { event =>
         executionEventPrinter.print(event)
       }
@@ -152,7 +169,7 @@ object TestOutput {
 
     def make(executionEventPrinter: ExecutionEventPrinter): ZIO[Any, Nothing, TestOutput] = for {
       talkers <- TestReporters.make
-      output  <- Ref.make[Map[SuiteId, Chunk[ExecutionEvent]]](Map.empty)
+      output  <- Ref.Synchronized.make[Map[SuiteId, Chunk[ExecutionEvent]]](Map.empty)
     } yield TestOutputLive(output, talkers, executionEventPrinter)
 
   }
