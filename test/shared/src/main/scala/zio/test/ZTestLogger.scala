@@ -79,6 +79,8 @@ object ZTestLogger {
     ZIO.succeed {
 
       val _logOutput = new java.util.concurrent.atomic.AtomicReference[Chunk[LogEntry]](Chunk.empty)
+      // I was expecting to use a pretty similar approach for the Log capturing,
+      // but now I see that ZTestLogger isn't describing an effect here.
 
       new ZTestLogger[String, Unit] {
         @tailrec

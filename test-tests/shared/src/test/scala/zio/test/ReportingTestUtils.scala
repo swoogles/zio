@@ -1,5 +1,7 @@
 package zio.test
 
+import zio.Console.{printLine, readLine}
+import zio.internal.ansi.AnsiStringOps
 import zio.internal.stacktracer.SourceLocation
 import zio.test.Assertion._
 import zio.test.ReporterEventRenderer.ConsoleEventRenderer
@@ -89,6 +91,25 @@ object ReportingTestUtils {
   def test3(implicit sourceLocation: SourceLocation): Spec[Any, Nothing] =
     test("Value falls within range")(assert(52)(equalTo(42) || (isGreaterThan(5) && isLessThan(10))))
 
+  def testIO(implicit sourceLocation: SourceLocation): Spec[Any, Nothing] =
+    test("CapturesIO") {
+      for {
+        _ <- printLine("Hi").orDie
+      } yield assertNever("Fail")
+    }
+
+
+  // TODO Use this after completing easier test
+  def testIOComplex(implicit sourceLocation: SourceLocation): Spec[Any, Nothing] =
+  test("demo console IO")(
+    for {
+     _ <- printLine("Hello, World!").orDie
+     _ <- TestConsole.feedLines("Hi to you!")
+     _ <- ZIO.log("I'm logging")
+     _ <- readLine.orDie
+    } yield assertTrue(false)
+  )
+
   def test3Expected(parents: String*)(implicit sourceLocation: SourceLocation): Vector[String] = {
     val indent = " " * ((parents.length + 1) * 2)
     val prefix =
@@ -103,7 +124,16 @@ object ReportingTestUtils {
       s"${indent}" + assertSourceLocation(),
       s"${indent}✗ 52 was not less than 10",
       s"${indent}52 did not satisfy equalTo(42) || (isGreaterThan(5) && isLessThan(10)",
-      s"${indent}" + assertSourceLocation()
+      s"${indent}" + assertSourceLocation(),
+    s"${indent}" + "          Console IO Produced by Test         ".underlined
+    )
+
+  }
+
+  def testWithIOSummary(parents: String*)(implicit sourceLocation: SourceLocation): Vector[String] = {
+    val indent = " " * ((parents.length + 1) * 2)
+    Vector(
+      s"${indent}" + "          Console IO Produced by Test         ",
     )
   }
 

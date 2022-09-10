@@ -1,6 +1,53 @@
 package zio
 
+import zio.Console.{printLine, readLine}
 import zio.test._
+
+
+
+
+object ConsoleIOCapturingSpec extends ZIOSpecDefault {
+  def spec = test("demo log capturing IO")(
+    for {
+     _ <- ZIO.log("I'm logging")
+    } yield assertTrue(false)
+  )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 object LoggingSpec extends ZIOBaseSpec {
 
@@ -71,6 +118,11 @@ object LoggingSpec extends ZIOBaseSpec {
           } yield assertTrue(output.length == 1) &&
             assertTrue(output(0).context.get(ref).contains(value))
         )
-      }
+      },
+      test("demo log capturing IO")(
+        for {
+          _ <- ZIO.log("I'm logging")
+        } yield assertNever("Need  to capture logs!")
+      )
     )
 }

@@ -14,7 +14,14 @@ object SummaryBuilderSpec extends ZIOBaseSpec {
     log.take(1).mkString.stripLineEnd
 
   private def containsUnstyled(string: String, substring: String): TestResult =
-    substring.unstyled.split("\n").map(line => assertTrue(string.unstyled.contains(line))).reduce(_ && _)
+    substring.unstyled.split("\n").map(line => {
+      println(
+        s"""|===================
+            |string.unstyled: + ${string.unstyled}
+            |===================""")
+
+      assertTrue(string.unstyled.contains(line))
+    }).reduce(_ && _)
 
   def spec =
     suite("SummaryBuilderSpec")(
@@ -23,6 +30,9 @@ object SummaryBuilderSpec extends ZIOBaseSpec {
       ),
       test("includes a failed test")(
         runSummary(test3).map(str => containsUnstyled(str, summarize(test3Expected())))
+      ),
+      test("tests IO")(
+        runSummary(testIO).map(str => containsUnstyled(str, summarize(testWithIOSummary())))
       ),
       test("doesn't generate summary for a successful test suite")(
         assertZIO(runSummary(suite1))(equalTo(""))
