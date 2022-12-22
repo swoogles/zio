@@ -1,0 +1,32 @@
+[
+ {
+    "testName" : "zio.test.DemoSpec/outter suite/inner suite 1/A",
+    "testStatus" : "Success",
+    "durationMillis" : "1591",
+    "annotations" : "tagged: \"important\""
+ },
+ {
+    "testName" : "zio.test.DemoSpec/outter suite/inner suite 1/B",
+    "testStatus" : "Success",
+    "durationMillis" : "2484",
+    "annotations" : "2 s 23 ms"
+ },
+ {
+    "testName" : "zio.test.DemoSpec/outter suite/inner suite 2/C",
+    "testStatus" : "Success",
+    "durationMillis" : "452",
+    "annotations" : "ignored: 1"
+ },
+ {
+    "testName" : "zio.test.DemoSpec/outter suite/inner suite 2/D",
+    "testStatus" : "Success",
+    "durationMillis" : "1591",
+    "annotations" : ""
+ },
+ {
+    "testName" : "zio.test.DemoSpec/outter suite/inner suite 2/E",
+    "testStatus" : "Success",
+    "durationMillis" : "2487",
+    "annotations" : ""
+ }
+]
