@@ -1,6 +1,7 @@
 package zio.test.results
 
 import zio._
+import zio.test.fileio.FileSandbox.NodeFile
 
 import java.io.IOException
 
@@ -16,7 +17,8 @@ private[test] object ResultFileOpsJson {
 
   private[test] case class Live() extends ResultFileOpsJson {
     def write(content: => String, append: Boolean): ZIO[Any, IOException, Unit] =
-      ZIO.unit
+      ZIO.succeed(NodeFile.write("js_junk.txt", "Hello ScalaJS IO "))
+//      ZIO.unit
   }
 
 }

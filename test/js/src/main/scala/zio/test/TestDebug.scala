@@ -1,5 +1,6 @@
 package zio.test
 
+import zio.test.fileio.FileSandbox.NodeFile
 import zio.{Ref, ZIO}
 
 // TODO Implement this with appropriate JS filesystem APIs after JVM version is finalized
@@ -20,8 +21,10 @@ private[test] object TestDebug {
     content: => String,
     append: Boolean,
     lock: TestDebugFileLock
-  ): ZIO[Any, Nothing, Unit] =
-    ZIO.unit
+  ): ZIO[Any, Nothing, Unit] = {
+    ZIO.succeed(NodeFile.write("js_junk.txt", "Hello ScalaJS IO DEBUG "))
+//    ZIO.unit
+  }
 
   private def removeLine(fullyQualifiedTaskName: String, searchString: String, lock: TestDebugFileLock) =
     ZIO.unit
